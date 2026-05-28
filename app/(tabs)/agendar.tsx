@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SPECIALTIES } from '@/constants/specialties';

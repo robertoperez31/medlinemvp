@@ -252,7 +252,7 @@ export default function RegisterScreen() {
                 </Pressable>
 
                 <Pressable
-                  onPress={() => handleSubmit(onSubmit)({ name: getValues('name'), email: getValues('email'), password: getValues('password'), confirmPassword: getValues('confirmPassword') } as RegisterForm)}
+                  onPress={() => onSubmit(getValues())}
                   className="items-center"
                 >
                   <Text className="text-[#64748B] text-sm font-[Inter_400Regular]">Omitir por ahora</Text>
