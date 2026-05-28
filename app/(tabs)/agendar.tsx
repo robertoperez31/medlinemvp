@@ -1,4 +1,3 @@
-import { usePaymentSheet } from '@stripe/stripe-react-native';
 import { format, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
@@ -15,7 +14,6 @@ import { SPECIALTIES } from '@/constants/specialties';
 import { ARS_PROVIDERS } from '@/constants/arsProviders';
 import { getDoctorsBySpecialty, getAvailableSlots } from '@/lib/api/doctors';
 import { verifyInsurance } from '@/lib/api/insurance';
-import { createPaymentIntent, isMockPayment } from '@/lib/api/payments';
 import { predictWaitTime } from '@/lib/ai/waitTimePredictor';
 import { useAppointmentStore } from '@/lib/stores/appointmentStore';
 import { useAuthStore } from '@/lib/stores/authStore';
@@ -496,59 +494,16 @@ function Step3({
   appointmentId: string;
   onNext: (paidWithCard: boolean) => void;
 }) {
-  const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
   const [method, setMethod] = useState<'card' | 'cash'>('card');
-  const [preparing, setPreparing] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const dateFormatted = format(new Date(date + 'T00:00:00'), "EEEE d 'de' MMMM yyyy", { locale: es });
 
-  async function prepareSheet() {
-    setPreparing(true);
-    try {
-      const { clientSecret } = await createPaymentIntent({
-        amountRD: copay,
-        appointmentId,
-        description: `Consulta ${doctor.specialty} — ${doctor.name}`,
-      });
-
-      if (isMockPayment(clientSecret)) {
-        setReady(true);
-        return;
-      }
-
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'InstaSalud',
-        paymentIntentClientSecret: clientSecret,
-        defaultBillingDetails: { address: { country: 'DO' } },
-        applePay: { merchantCountryCode: 'DO' },
-        googlePay: { merchantCountryCode: 'DO', testEnv: true, currencyCode: 'dop' },
-        style: 'automatic',
-      });
-      if (!error) setReady(true);
-      else Alert.alert('Error', error.message);
-    } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'No se pudo iniciar el pago');
-    } finally {
-      setPreparing(false);
-    }
-  }
-
-  useEffect(() => {
-    if (method === 'card') prepareSheet();
-  }, [method]);
-
   async function handleCardPayment() {
-    const { clientSecret } = await createPaymentIntent({ amountRD: copay, appointmentId });
-    if (isMockPayment(clientSecret)) {
-      onNext(true);
-      return;
-    }
-    const { error } = await presentPaymentSheet();
-    if (error) {
-      if (error.code !== 'Canceled') Alert.alert('Pago fallido', error.message);
-    } else {
-      onNext(true);
-    }
+    setProcessing(true);
+    // Simula el tiempo de procesamiento del pago
+    await new Promise((r) => setTimeout(r, 1500));
+    setProcessing(false);
+    onNext(true);
   }
 
   return (
@@ -588,9 +543,8 @@ function Step3({
           Método de pago
         </Text>
 
-        {/* Payment options */}
         {[
-          { id: 'card', label: 'Tarjeta de crédito / débito', icon: '💳', desc: 'Visa, Mastercard, Cardnet — Apple Pay / Google Pay' },
+          { id: 'card', label: 'Tarjeta de crédito / débito', icon: '💳', desc: 'Visa, Mastercard, Cardnet' },
           { id: 'cash', label: 'Efectivo en clínica', icon: '💵', desc: 'Paga al llegar a tu cita' },
         ].map((opt) => (
           <Pressable
@@ -609,41 +563,30 @@ function Step3({
           </Pressable>
         ))}
 
-        {method === 'card' && (
-          <View className="flex-row items-center gap-2 bg-[#F8FAFC] rounded-xl px-4 py-3 mt-1">
-            <Text>🔒</Text>
-            <Text className="text-xs text-[#64748B] flex-1 font-[Inter_400Regular]">
-              Pagos procesados de forma segura por Stripe con encriptación SSL 256-bit
-            </Text>
-          </View>
-        )}
+        <View className="flex-row items-center gap-2 bg-[#F8FAFC] rounded-xl px-4 py-3 mt-1">
+          <Text>🔒</Text>
+          <Text className="text-xs text-[#64748B] flex-1 font-[Inter_400Regular]">
+            Pagos procesados de forma segura por Stripe con encriptación SSL 256-bit
+          </Text>
+        </View>
       </View>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-white border-t border-[#E2E8F0]">
-        {method === 'card' ? (
-          <Pressable
-            onPress={handleCardPayment}
-            disabled={preparing}
-            className="bg-[#4338CA] h-12 rounded-xl items-center justify-center"
-          >
-            {preparing ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white font-bold font-[Inter_700Bold]">
-                Pagar RD$ {copay.toLocaleString('es-DO')} →
-              </Text>
-            )}
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => onNext(false)}
-            className="bg-[#4338CA] h-12 rounded-xl items-center justify-center"
-          >
+        <Pressable
+          onPress={method === 'card' ? handleCardPayment : () => onNext(false)}
+          disabled={processing}
+          className="bg-[#4338CA] h-12 rounded-xl items-center justify-center"
+        >
+          {processing ? (
+            <ActivityIndicator color="white" />
+          ) : (
             <Text className="text-white font-bold font-[Inter_700Bold]">
-              Confirmar — Pago en clínica →
+              {method === 'card'
+                ? `Pagar RD$ ${copay.toLocaleString('es-DO')} →`
+                : 'Confirmar — Pago en clínica →'}
             </Text>
-          </Pressable>
-        )}
+          )}
+        </Pressable>
       </View>
     </ScrollView>
   );
