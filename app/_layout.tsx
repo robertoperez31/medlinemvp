@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '../global.css';
 import { initDatabase } from '@/lib/db';
 import { useAuthStore } from '@/lib/stores/authStore';
+import { StripeProvider } from '@/components/StripeProvider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,12 +48,14 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </GestureHandlerRootView>
+      <StripeProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </GestureHandlerRootView>
+      </StripeProvider>
     </QueryClientProvider>
   );
 }

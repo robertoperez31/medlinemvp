@@ -1,3 +1,4 @@
+import { usePaymentSheet } from '@stripe/stripe-react-native';
 import { format, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { SPECIALTIES } from '@/constants/specialties';
 import { ARS_PROVIDERS } from '@/constants/arsProviders';
 import { getDoctorsBySpecialty, getAvailableSlots } from '@/lib/api/doctors';
 import { verifyInsurance } from '@/lib/api/insurance';
+import { createPaymentIntent, isMockPayment } from '@/lib/api/payments';
 import { predictWaitTime } from '@/lib/ai/waitTimePredictor';
 import { useAppointmentStore } from '@/lib/stores/appointmentStore';
 import { useAuthStore } from '@/lib/stores/authStore';
@@ -476,13 +478,14 @@ function Step2({
   );
 }
 
-// Step 3: Confirm appointment (cash only)
+// Step 3: Payment
 function Step3({
   doctor,
   date,
   time,
   insurance,
   copay,
+  appointmentId,
   onNext,
 }: {
   doctor: Doctor;
@@ -490,103 +493,157 @@ function Step3({
   time: string;
   insurance: InsuranceVerificationResult | null;
   copay: number;
-  onNext: () => void;
+  appointmentId: string;
+  onNext: (paidWithCard: boolean) => void;
 }) {
+  const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
+  const [method, setMethod] = useState<'card' | 'cash'>('card');
+  const [preparing, setPreparing] = useState(false);
+  const [ready, setReady] = useState(false);
   const dateFormatted = format(new Date(date + 'T00:00:00'), "EEEE d 'de' MMMM yyyy", { locale: es });
+
+  async function prepareSheet() {
+    setPreparing(true);
+    try {
+      const { clientSecret } = await createPaymentIntent({
+        amountRD: copay,
+        appointmentId,
+        description: `Consulta ${doctor.specialty} — ${doctor.name}`,
+      });
+
+      if (isMockPayment(clientSecret)) {
+        setReady(true);
+        return;
+      }
+
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: 'InstaSalud',
+        paymentIntentClientSecret: clientSecret,
+        defaultBillingDetails: { address: { country: 'DO' } },
+        applePay: { merchantCountryCode: 'DO' },
+        googlePay: { merchantCountryCode: 'DO', testEnv: true, currencyCode: 'dop' },
+        style: 'automatic',
+      });
+      if (!error) setReady(true);
+      else Alert.alert('Error', error.message);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo iniciar el pago');
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (method === 'card') prepareSheet();
+  }, [method]);
+
+  async function handleCardPayment() {
+    const { clientSecret } = await createPaymentIntent({ amountRD: copay, appointmentId });
+    if (isMockPayment(clientSecret)) {
+      onNext(true);
+      return;
+    }
+    const { error } = await presentPaymentSheet();
+    if (error) {
+      if (error.code !== 'Canceled') Alert.alert('Pago fallido', error.message);
+    } else {
+      onNext(true);
+    }
+  }
 
   return (
     <ScrollView className="flex-1">
       <View className="px-5 pb-24">
-        <Text className="text-base font-bold text-[#0F172A] mb-4 font-[Inter_700Bold]">
-          Resumen de tu cita
-        </Text>
+        {/* Copay summary */}
+        <View className="bg-[#EEF2FF] rounded-2xl p-5 mb-5">
+          <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Total a pagar</Text>
+          <Text className="text-4xl font-bold text-[#4338CA] mt-1 font-[Inter_700Bold]">
+            RD$ {copay.toLocaleString('es-DO')}
+          </Text>
+          {insurance?.verified && (
+            <Text className="text-xs text-[#4338CA] mt-1 font-[Inter_400Regular]">
+              Copago después de {insurance.coveragePercent}% de cobertura
+            </Text>
+          )}
+        </View>
 
-        {/* Summary card */}
-        <View className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mb-4">
+        {/* Appointment summary */}
+        <View className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mb-5">
           {[
             { label: '👨‍⚕️ Médico', value: doctor.name },
-            { label: '🩺 Especialidad', value: doctor.specialty },
-            { label: '🏥 Hospital', value: doctor.hospital },
             { label: '📅 Fecha', value: dateFormatted, capitalize: true },
             { label: '⏰ Hora', value: time },
+            { label: '🏥 Hospital', value: doctor.hospital },
           ].map(({ label, value, capitalize }, i, arr) => (
-            <View
-              key={label}
-              className={`flex-row justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}
-            >
+            <View key={label} className={`flex-row justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}>
               <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">{label}</Text>
-              <Text
-                className={`text-sm font-medium text-[#0F172A] font-[Inter_500Medium] flex-1 text-right ml-4 ${capitalize ? 'capitalize' : ''}`}
-                numberOfLines={1}
-              >
+              <Text className={`text-sm font-medium text-[#0F172A] font-[Inter_500Medium] flex-1 text-right ml-4 ${capitalize ? 'capitalize' : ''}`} numberOfLines={1}>
                 {value}
               </Text>
             </View>
           ))}
         </View>
 
-        {/* Insurance & copay */}
-        <View className={`rounded-2xl p-4 mb-4 border ${insurance?.verified ? 'bg-[#ECFDF5] border-[#A7F3D0]' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
-          {insurance?.verified ? (
-            <>
-              <View className="flex-row items-center gap-2 mb-2">
-                <Text>✅</Text>
-                <Text className="text-[#059669] font-bold font-[Inter_700Bold]">Seguro verificado</Text>
-              </View>
-              <View className="flex-row justify-between mb-1">
-                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">ARS / Plan</Text>
-                <Text className="text-sm font-medium text-[#065F46] font-[Inter_500Medium]">
-                  {insurance.arsName} · {insurance.planName}
-                </Text>
-              </View>
-              <View className="flex-row justify-between mb-1">
-                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">Costo consulta</Text>
-                <Text className="text-sm font-medium text-[#065F46] font-[Inter_500Medium]">
-                  RD$ {insurance.totalCost.toLocaleString('es-DO')}
-                </Text>
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">Cobertura seguro</Text>
-                <Text className="text-sm font-medium text-[#059669] font-[Inter_500Medium]">
-                  -{insurance.coveragePercent}%
-                </Text>
-              </View>
-            </>
-          ) : (
-            <View className="flex-row items-center gap-2">
-              <Text>💰</Text>
-              <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Sin seguro — pago completo</Text>
+        <Text className="text-base font-bold text-[#0F172A] mb-3 font-[Inter_700Bold]">
+          Método de pago
+        </Text>
+
+        {/* Payment options */}
+        {[
+          { id: 'card', label: 'Tarjeta de crédito / débito', icon: '💳', desc: 'Visa, Mastercard, Cardnet — Apple Pay / Google Pay' },
+          { id: 'cash', label: 'Efectivo en clínica', icon: '💵', desc: 'Paga al llegar a tu cita' },
+        ].map((opt) => (
+          <Pressable
+            key={opt.id}
+            onPress={() => setMethod(opt.id as 'card' | 'cash')}
+            className={`bg-white rounded-2xl p-4 mb-3 border flex-row items-center gap-3 ${method === opt.id ? 'border-[#4338CA]' : 'border-[#E2E8F0]'}`}
+          >
+            <Text className="text-2xl">{opt.icon}</Text>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-[#0F172A] font-[Inter_600SemiBold]">{opt.label}</Text>
+              <Text className="text-xs text-[#64748B] font-[Inter_400Regular]">{opt.desc}</Text>
             </View>
-          )}
-        </View>
+            <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${method === opt.id ? 'border-[#4338CA] bg-[#4338CA]' : 'border-[#E2E8F0]'}`}>
+              {method === opt.id && <View className="w-2 h-2 rounded-full bg-white" />}
+            </View>
+          </Pressable>
+        ))}
 
-        {/* Total to pay */}
-        <View className="bg-[#EEF2FF] rounded-2xl p-5 mb-4">
-          <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Total a pagar en clínica</Text>
-          <Text className="text-4xl font-bold text-[#4338CA] mt-1 font-[Inter_700Bold]">
-            RD$ {copay.toLocaleString('es-DO')}
-          </Text>
-          <View className="flex-row items-center gap-1.5 mt-2">
-            <Text className="text-base">💵</Text>
-            <Text className="text-xs text-[#4338CA] font-[Inter_500Medium]">Pago en efectivo al llegar a la cita</Text>
+        {method === 'card' && (
+          <View className="flex-row items-center gap-2 bg-[#F8FAFC] rounded-xl px-4 py-3 mt-1">
+            <Text>🔒</Text>
+            <Text className="text-xs text-[#64748B] flex-1 font-[Inter_400Regular]">
+              Pagos procesados de forma segura por Stripe con encriptación SSL 256-bit
+            </Text>
           </View>
-        </View>
-
-        {/* Instructions */}
-        <View className="bg-[#F0FDFA] rounded-xl p-4">
-          <Text className="text-[#0D9488] font-semibold mb-1 font-[Inter_600SemiBold]">📋 Recuerda llevar</Text>
-          <Text className="text-[#0F766E] text-sm font-[Inter_400Regular]">
-            • Cédula de identidad{'\n'}
-            • Tarjeta de tu ARS (si aplica){'\n'}
-            • El importe exacto en efectivo
-          </Text>
-        </View>
+        )}
       </View>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-white border-t border-[#E2E8F0]">
-        <Pressable onPress={onNext} className="bg-[#4338CA] h-12 rounded-xl items-center justify-center">
-          <Text className="text-white font-bold font-[Inter_700Bold]">Confirmar cita →</Text>
-        </Pressable>
+        {method === 'card' ? (
+          <Pressable
+            onPress={handleCardPayment}
+            disabled={preparing}
+            className="bg-[#4338CA] h-12 rounded-xl items-center justify-center"
+          >
+            {preparing ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-bold font-[Inter_700Bold]">
+                Pagar RD$ {copay.toLocaleString('es-DO')} →
+              </Text>
+            )}
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => onNext(false)}
+            className="bg-[#4338CA] h-12 rounded-xl items-center justify-center"
+          >
+            <Text className="text-white font-bold font-[Inter_700Bold]">
+              Confirmar — Pago en clínica →
+            </Text>
+          </Pressable>
+        )}
       </View>
     </ScrollView>
   );
@@ -672,6 +729,7 @@ export default function AgendarScreen() {
   const [time, setTime] = useState('');
   const [insuranceResult, setInsuranceResult] = useState<InsuranceVerificationResult | null>(null);
   const [confirmedAppointment, setConfirmedAppointment] = useState<any>(null);
+  const [pendingAppointmentId] = useState(() => `appt_${Date.now()}`);
 
   async function handleStep1(data: { doctor: Doctor; date: string; time: string }) {
     setDoctor(data.doctor);
@@ -685,7 +743,7 @@ export default function AgendarScreen() {
     setStep(2);
   }
 
-  async function handleStep3() {
+  async function handleStep3(paidWithCard: boolean) {
     try {
       const waitPrediction = doctor ? predictWaitTime(doctor, time, new Date(date + 'T00:00:00')) : null;
       const appt = await addAppointment({
@@ -698,6 +756,7 @@ export default function AgendarScreen() {
         status: 'upcoming',
         copay: insuranceResult?.copay,
         aiWaitTime: waitPrediction?.minutes,
+        notes: paidWithCard ? 'Pagado con tarjeta' : 'Pago en efectivo',
       });
       setConfirmedAppointment(appt);
       setStep(3);
@@ -732,6 +791,7 @@ export default function AgendarScreen() {
           time={time}
           insurance={insuranceResult}
           copay={insuranceResult?.copay ?? doctor.pricePerConsult}
+          appointmentId={pendingAppointmentId}
           onNext={handleStep3}
         />
       )}
