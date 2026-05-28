@@ -1,0 +1,162 @@
+import type { Doctor } from '@/types/doctor';
+import { HOSPITALS } from '@/constants/hospitals';
+
+// Mock data — replace with real API calls to your backend
+const MOCK_DOCTORS: Doctor[] = [
+  {
+    id: 'd1',
+    name: 'Dr. Carlos Ramírez',
+    photo: undefined,
+    specialty: 'Medicina General',
+    specialtyId: 'medicina-general',
+    hospital: 'Clínica Abreu',
+    hospitalId: 'clinica-abreu',
+    rating: 4.8,
+    reviewCount: 124,
+    pricePerConsult: 1500,
+    languages: ['Español'],
+    availableToday: true,
+    avgWaitTimeMinutes: 12,
+    experience: 15,
+    bio: 'Médico general con 15 años de experiencia en atención primaria.',
+  },
+  {
+    id: 'd2',
+    name: 'Dra. María Santos',
+    photo: undefined,
+    specialty: 'Cardiología',
+    specialtyId: 'cardiologia',
+    hospital: 'CEDIMAT',
+    hospitalId: 'cedimat',
+    rating: 4.9,
+    reviewCount: 88,
+    pricePerConsult: 3500,
+    languages: ['Español', 'Inglés'],
+    availableToday: true,
+    avgWaitTimeMinutes: 18,
+    experience: 20,
+    bio: 'Cardióloga certificada con especialidad en cardiología intervencionista.',
+  },
+  {
+    id: 'd3',
+    name: 'Dr. Juan Pérez',
+    photo: undefined,
+    specialty: 'Pediatría',
+    specialtyId: 'pediatria',
+    hospital: 'Plaza de la Salud',
+    hospitalId: 'plaza-de-la-salud',
+    rating: 4.7,
+    reviewCount: 215,
+    pricePerConsult: 2000,
+    languages: ['Español'],
+    availableToday: false,
+    avgWaitTimeMinutes: 8,
+    experience: 12,
+    bio: 'Pediatra con amplia experiencia en neonatología y atención infantil.',
+  },
+  {
+    id: 'd4',
+    name: 'Dra. Ana Rodríguez',
+    photo: undefined,
+    specialty: 'Ginecología',
+    specialtyId: 'ginecologia',
+    hospital: 'Maternidad La Altagracia',
+    hospitalId: 'maternidad-altagracia',
+    rating: 4.9,
+    reviewCount: 176,
+    pricePerConsult: 2500,
+    languages: ['Español', 'Inglés'],
+    availableToday: true,
+    avgWaitTimeMinutes: 15,
+    experience: 18,
+    bio: 'Ginecóloga-obstetra especializada en alto riesgo obstétrico.',
+  },
+  {
+    id: 'd5',
+    name: 'Dr. Roberto García',
+    photo: undefined,
+    specialty: 'Dermatología',
+    specialtyId: 'dermatologia',
+    hospital: 'Instituto Dermatológico',
+    hospitalId: 'instituto-dermatologico',
+    rating: 4.6,
+    reviewCount: 92,
+    pricePerConsult: 2800,
+    languages: ['Español'],
+    availableToday: true,
+    avgWaitTimeMinutes: 22,
+    experience: 10,
+    bio: 'Dermatólogo con subespecialidad en dermatología estética y oncológica.',
+  },
+  {
+    id: 'd6',
+    name: 'Dra. Patricia Núñez',
+    photo: undefined,
+    specialty: 'Neurología',
+    specialtyId: 'neurologia',
+    hospital: 'CECANOT',
+    hospitalId: 'cecanot',
+    rating: 4.8,
+    reviewCount: 63,
+    pricePerConsult: 4000,
+    languages: ['Español', 'Inglés', 'Francés'],
+    availableToday: false,
+    avgWaitTimeMinutes: 25,
+    experience: 22,
+    bio: 'Neuróloga especializada en esclerosis múltiple y epilepsia.',
+  },
+  {
+    id: 'd7',
+    name: 'Dr. Miguel Torres',
+    photo: undefined,
+    specialty: 'Ortopedia',
+    specialtyId: 'ortopedia',
+    hospital: 'Hospital Traumatológico Ney Arias Lora',
+    hospitalId: 'ney-arias',
+    rating: 4.7,
+    reviewCount: 108,
+    pricePerConsult: 3000,
+    languages: ['Español'],
+    availableToday: true,
+    avgWaitTimeMinutes: 20,
+    experience: 16,
+    bio: 'Cirujano ortopédico con experiencia en reemplazos articulares y traumatología.',
+  },
+  {
+    id: 'd8',
+    name: 'Dra. Carmen Vásquez',
+    photo: undefined,
+    specialty: 'Medicina General',
+    specialtyId: 'medicina-general',
+    hospital: 'Hospital Metropolitano de Santiago',
+    hospitalId: 'metropolitano-santiago',
+    rating: 4.5,
+    reviewCount: 201,
+    pricePerConsult: 1200,
+    languages: ['Español'],
+    availableToday: true,
+    avgWaitTimeMinutes: 10,
+    experience: 8,
+    bio: 'Médica general comprometida con la atención preventiva y familiar.',
+  },
+];
+
+export async function getDoctorsBySpecialty(specialtyId: string): Promise<Doctor[]> {
+  await new Promise((r) => setTimeout(r, 500));
+  return MOCK_DOCTORS.filter((d) => d.specialtyId === specialtyId);
+}
+
+export async function getDoctorById(id: string): Promise<Doctor | undefined> {
+  return MOCK_DOCTORS.find((d) => d.id === id);
+}
+
+export async function getAvailableSlots(doctorId: string, date: string): Promise<string[]> {
+  await new Promise((r) => setTimeout(r, 300));
+  const slots = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+    '11:00', '11:30', '14:00', '14:30', '15:00', '15:30',
+    '16:00', '16:30', '17:00',
+  ];
+  const unavailable = new Set(['09:30', '11:00', '14:30', '16:00']);
+  return slots.filter((s) => !unavailable.has(s));
+}

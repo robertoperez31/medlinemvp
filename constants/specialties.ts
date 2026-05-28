@@ -1,0 +1,113 @@
+import type { Specialty } from '@/types/doctor';
+
+export const SPECIALTIES: Specialty[] = [
+  {
+    id: 'medicina-general',
+    name: 'Medicina General',
+    icon: '🩺',
+    color: '#4338CA',
+    description: 'Consulta general y preventiva',
+  },
+  {
+    id: 'cardiologia',
+    name: 'Cardiología',
+    icon: '❤️',
+    color: '#DC2626',
+    description: 'Salud del corazón y sistema cardiovascular',
+  },
+  {
+    id: 'pediatria',
+    name: 'Pediatría',
+    icon: '👶',
+    color: '#0D9488',
+    description: 'Atención médica para niños',
+  },
+  {
+    id: 'ginecologia',
+    name: 'Ginecología',
+    icon: '🌸',
+    color: '#DB2777',
+    description: 'Salud femenina y obstétrica',
+  },
+  {
+    id: 'dermatologia',
+    name: 'Dermatología',
+    icon: '✨',
+    color: '#D97706',
+    description: 'Enfermedades de la piel',
+  },
+  {
+    id: 'ortopedia',
+    name: 'Ortopedia',
+    icon: '🦴',
+    color: '#7C3AED',
+    description: 'Huesos, articulaciones y músculos',
+  },
+  {
+    id: 'neurologia',
+    name: 'Neurología',
+    icon: '🧠',
+    color: '#2563EB',
+    description: 'Sistema nervioso y cerebro',
+  },
+  {
+    id: 'oftalmologia',
+    name: 'Oftalmología',
+    icon: '👁️',
+    color: '#059669',
+    description: 'Salud visual y ocular',
+  },
+  {
+    id: 'otorrinolaringologia',
+    name: 'Otorrinolaringología',
+    icon: '👂',
+    color: '#0891B2',
+    description: 'Oídos, nariz y garganta',
+  },
+  {
+    id: 'gastroenterologia',
+    name: 'Gastroenterología',
+    icon: '🫁',
+    color: '#65A30D',
+    description: 'Sistema digestivo',
+  },
+  {
+    id: 'endocrinologia',
+    name: 'Endocrinología',
+    icon: '⚗️',
+    color: '#CA8A04',
+    description: 'Hormonas y metabolismo',
+  },
+  {
+    id: 'psiquiatria',
+    name: 'Psiquiatría',
+    icon: '🧩',
+    color: '#9333EA',
+    description: 'Salud mental',
+  },
+  {
+    id: 'urologia',
+    name: 'Urología',
+    icon: '💧',
+    color: '#0369A1',
+    description: 'Sistema urinario',
+  },
+  {
+    id: 'pulmonologia',
+    name: 'Neumología',
+    icon: '🫀',
+    color: '#475569',
+    description: 'Pulmones y sistema respiratorio',
+  },
+];
+
+export const APPOINTMENT_FREQUENCIES = [
+  'Una vez al día',
+  'Dos veces al día',
+  'Tres veces al día',
+  'Cada 8 horas',
+  'Cada 12 horas',
+  'Solo cuando sea necesario',
+  'Semanal',
+  'Mensual',
+];
