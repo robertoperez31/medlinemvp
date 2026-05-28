@@ -20,7 +20,7 @@ import { useAuthStore } from '@/lib/stores/authStore';
 import type { Doctor } from '@/types/doctor';
 import type { InsuranceVerificationResult } from '@/types/appointment';
 
-const STEPS = ['Médico', 'Seguro', 'Pago', 'Confirmación'];
+const STEPS = ['Médico', 'Seguro', 'Confirmar', 'Listo'];
 
 function ProgressBar({ current }: { current: number }) {
   return (
@@ -476,69 +476,116 @@ function Step2({
   );
 }
 
-// Step 3: Payment
+// Step 3: Confirm appointment (cash only)
 function Step3({
+  doctor,
+  date,
+  time,
+  insurance,
   copay,
   onNext,
-  onBack,
 }: {
+  doctor: Doctor;
+  date: string;
+  time: string;
+  insurance: InsuranceVerificationResult | null;
   copay: number;
   onNext: () => void;
-  onBack: () => void;
 }) {
-  const [method, setMethod] = useState<'card' | 'cash'>('card');
+  const dateFormatted = format(new Date(date + 'T00:00:00'), "EEEE d 'de' MMMM yyyy", { locale: es });
 
   return (
     <ScrollView className="flex-1">
       <View className="px-5 pb-24">
-        {/* Copay summary */}
-        <View className="bg-[#EEF2FF] rounded-2xl p-5 mb-5">
-          <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Total a pagar</Text>
+        <Text className="text-base font-bold text-[#0F172A] mb-4 font-[Inter_700Bold]">
+          Resumen de tu cita
+        </Text>
+
+        {/* Summary card */}
+        <View className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mb-4">
+          {[
+            { label: '👨‍⚕️ Médico', value: doctor.name },
+            { label: '🩺 Especialidad', value: doctor.specialty },
+            { label: '🏥 Hospital', value: doctor.hospital },
+            { label: '📅 Fecha', value: dateFormatted, capitalize: true },
+            { label: '⏰ Hora', value: time },
+          ].map(({ label, value, capitalize }, i, arr) => (
+            <View
+              key={label}
+              className={`flex-row justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}
+            >
+              <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">{label}</Text>
+              <Text
+                className={`text-sm font-medium text-[#0F172A] font-[Inter_500Medium] flex-1 text-right ml-4 ${capitalize ? 'capitalize' : ''}`}
+                numberOfLines={1}
+              >
+                {value}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Insurance & copay */}
+        <View className={`rounded-2xl p-4 mb-4 border ${insurance?.verified ? 'bg-[#ECFDF5] border-[#A7F3D0]' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
+          {insurance?.verified ? (
+            <>
+              <View className="flex-row items-center gap-2 mb-2">
+                <Text>✅</Text>
+                <Text className="text-[#059669] font-bold font-[Inter_700Bold]">Seguro verificado</Text>
+              </View>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">ARS / Plan</Text>
+                <Text className="text-sm font-medium text-[#065F46] font-[Inter_500Medium]">
+                  {insurance.arsName} · {insurance.planName}
+                </Text>
+              </View>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">Costo consulta</Text>
+                <Text className="text-sm font-medium text-[#065F46] font-[Inter_500Medium]">
+                  RD$ {insurance.totalCost.toLocaleString('es-DO')}
+                </Text>
+              </View>
+              <View className="flex-row justify-between">
+                <Text className="text-sm text-[#065F46] font-[Inter_400Regular]">Cobertura seguro</Text>
+                <Text className="text-sm font-medium text-[#059669] font-[Inter_500Medium]">
+                  -{insurance.coveragePercent}%
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View className="flex-row items-center gap-2">
+              <Text>💰</Text>
+              <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Sin seguro — pago completo</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Total to pay */}
+        <View className="bg-[#EEF2FF] rounded-2xl p-5 mb-4">
+          <Text className="text-sm text-[#64748B] font-[Inter_400Regular]">Total a pagar en clínica</Text>
           <Text className="text-4xl font-bold text-[#4338CA] mt-1 font-[Inter_700Bold]">
             RD$ {copay.toLocaleString('es-DO')}
           </Text>
-          <Text className="text-xs text-[#64748B] mt-1 font-[Inter_400Regular]">Copago de tu seguro</Text>
+          <View className="flex-row items-center gap-1.5 mt-2">
+            <Text className="text-base">💵</Text>
+            <Text className="text-xs text-[#4338CA] font-[Inter_500Medium]">Pago en efectivo al llegar a la cita</Text>
+          </View>
         </View>
 
-        <Text className="text-base font-bold text-[#0F172A] mb-3 font-[Inter_700Bold]">
-          Método de pago
-        </Text>
-
-        {/* Payment options */}
-        {[
-          { id: 'card', label: 'Tarjeta de crédito/débito', icon: '💳', desc: 'Visa, Mastercard, Cardnet' },
-          { id: 'cash', label: 'Efectivo en clínica', icon: '💵', desc: 'Paga al llegar a la cita' },
-        ].map((opt) => (
-          <Pressable
-            key={opt.id}
-            onPress={() => setMethod(opt.id as 'card' | 'cash')}
-            className={`bg-white rounded-2xl p-4 mb-3 border flex-row items-center gap-3 ${method === opt.id ? 'border-[#4338CA]' : 'border-[#E2E8F0]'}`}
-          >
-            <Text className="text-2xl">{opt.icon}</Text>
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-[#0F172A] font-[Inter_600SemiBold]">{opt.label}</Text>
-              <Text className="text-xs text-[#64748B] font-[Inter_400Regular]">{opt.desc}</Text>
-            </View>
-            <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${method === opt.id ? 'border-[#4338CA] bg-[#4338CA]' : 'border-[#E2E8F0]'}`}>
-              {method === opt.id && <View className="w-2 h-2 rounded-full bg-white" />}
-            </View>
-          </Pressable>
-        ))}
-
-        {/* Security note */}
-        <View className="flex-row items-center gap-2 bg-[#F8FAFC] rounded-xl px-4 py-3 mt-2">
-          <Text>🔒</Text>
-          <Text className="text-xs text-[#64748B] flex-1 font-[Inter_400Regular]">
-            Tus datos de pago están protegidos con encriptación SSL de 256 bits
+        {/* Instructions */}
+        <View className="bg-[#F0FDFA] rounded-xl p-4">
+          <Text className="text-[#0D9488] font-semibold mb-1 font-[Inter_600SemiBold]">📋 Recuerda llevar</Text>
+          <Text className="text-[#0F766E] text-sm font-[Inter_400Regular]">
+            • Cédula de identidad{'\n'}
+            • Tarjeta de tu ARS (si aplica){'\n'}
+            • El importe exacto en efectivo
           </Text>
         </View>
       </View>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-white border-t border-[#E2E8F0]">
         <Pressable onPress={onNext} className="bg-[#4338CA] h-12 rounded-xl items-center justify-center">
-          <Text className="text-white font-bold font-[Inter_700Bold]">
-            {method === 'cash' ? 'Confirmar cita →' : 'Pagar RD$ ' + copay.toLocaleString('es-DO')}
-          </Text>
+          <Text className="text-white font-bold font-[Inter_700Bold]">Confirmar cita →</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -678,7 +725,16 @@ export default function AgendarScreen() {
 
       {step === 0 && <Step1 onNext={handleStep1} />}
       {step === 1 && doctor && <Step2 doctor={doctor} onNext={handleStep2} onBack={() => setStep(0)} />}
-      {step === 2 && <Step3 copay={insuranceResult?.copay ?? (doctor?.pricePerConsult ?? 0)} onNext={handleStep3} onBack={() => setStep(1)} />}
+      {step === 2 && doctor && (
+        <Step3
+          doctor={doctor}
+          date={date}
+          time={time}
+          insurance={insuranceResult}
+          copay={insuranceResult?.copay ?? doctor.pricePerConsult}
+          onNext={handleStep3}
+        />
+      )}
       {step === 3 && confirmedAppointment && <Step4 appointment={confirmedAppointment} onDone={() => router.push('/(tabs)/citas')} />}
     </View>
   );

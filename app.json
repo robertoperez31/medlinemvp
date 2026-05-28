@@ -76,13 +76,6 @@
           "faceIDPermission": "Usa Face ID para acceder de forma segura a tus datos médicos"
         }
       ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.instasalud.app",
-          "enableGooglePay": true
-        }
-      ]
     ],
     "experiments": {
       "typedRoutes": true
